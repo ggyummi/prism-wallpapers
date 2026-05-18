@@ -1,0 +1,68 @@
+name: Generate Prism Wallpapers
+
+# This allows you to trigger the workflow manually from the GitHub Actions tab.
+# You can also set up a schedule later by adding a 'schedule' block.
+on:
+  workflow_dispatch:
+    inputs:
+      tmdb_id:
+        description: 'TMDb ID to generate (e.g., 157336 for Interstellar)'
+        required: true
+        default: '157336'
+      media_type:
+        description: 'Media Type (movie, tv, network, company, curated)'
+        required: true
+        default: 'movie'
+        type: choice
+        options:
+          - movie
+          - tv
+          - network
+          - company
+          - provider
+          - curated
+
+jobs:
+  build-wallpapers:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out your repository code to the GitHub runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python 3.11 (the engine that runs the visual math)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # 3. Install required Python packages (Pillow, NumPy, etc.)
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 4. Securely create the .env file using your GitHub Secrets
+      - name: Create API Environment File
+        run: |
+          cat << EOF > .env
+          TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}
+          FANART_API_KEY=${{ secrets.FANART_API_KEY }}
+          MDBLIST_API_KEY=${{ secrets.MDBLIST_API_KEY }}
+          EOF
+
+      # 5. Make the wrapper script executable
+      - name: Make generate.sh executable
+        run: chmod +x generate.sh
+
+      # 6. Run the script using the inputs you provided in the UI
+      - name: Generate Wallpapers
+        run: ./generate.sh ${{ github.event.inputs.tmdb_id }} ${{ github.event.inputs.media_type }}
+
+      # 7. Upload the generated 'collections' folder as a downloadable ZIP
+      - name: Upload Output Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Generated-Backdrops-${{ github.event.inputs.tmdb_id }}
+          path: collections/
+          retention-days: 7
